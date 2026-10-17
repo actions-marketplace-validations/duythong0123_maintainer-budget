@@ -23,6 +23,41 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual(top.unique_reviewers, 2)
         self.assertIn("configbuilder::default", " ".join(top.tokens))
 
+    def test_clusters_real_codex_camelcase_reviews_by_identifier_anchor(self):
+        comments = [
+            ReviewComment(
+                "openai/codex",
+                6467,
+                "https://github.com/openai/codex/pull/6467#discussion_r2512444488",
+                "bolinfest",
+                'FYI, we are using "camelCase" throughout the V2 protocol for codex app-server, so let\'s follow suit here.',
+                path="codex-rs/execpolicy2/src/decision.rs",
+                author_type="User",
+                author_association="COLLABORATOR",
+            ),
+            ReviewComment(
+                "openai/codex",
+                8442,
+                "https://github.com/openai/codex/pull/8442#discussion_r2644310695",
+                "bolinfest",
+                'instead of an individual alias for each, add #[serde(rename_all = "camelCase")] to the struct declaration. Is there any reason we should support two names for each field?',
+                path="codex-rs/network-proxy/src/config.rs",
+                author_type="User",
+                author_association="COLLABORATOR",
+            ),
+        ]
+        candidates = cluster_comments(comments, min_unique_prs=2)
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].unique_prs, 2)
+        self.assertIn("camelcase", candidates[0].tokens)
+
+    def test_common_manifest_name_is_not_a_strong_anchor(self):
+        comments = [
+            c(10, "Please update package.json for the release metadata."),
+            c(20, "The package.json dependency range needs changing."),
+        ]
+        self.assertEqual(cluster_comments(comments, similarity_threshold=0.5, min_unique_prs=2), [])
+
     def test_does_not_cluster_same_pr_only(self):
         comments = [
             c(10, "Please use nextTestSetup for this fixture."),
