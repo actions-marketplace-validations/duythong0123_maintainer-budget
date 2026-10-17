@@ -8,6 +8,11 @@ from .filtering import clean_text
 from .models import CandidateRule, ReviewComment
 
 TOKEN_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_:\-\.]*")
+GENERIC_ANCHORS = {
+    "package.json", "cargo.toml", "readme.md", "pyproject.toml", "tsconfig.json",
+    "github", "main", "master", "src", "test", "tests",
+}
+
 STOPWORDS = {
     "a", "an", "and", "are", "as", "at", "be", "because", "been", "but", "by",
     "can", "could", "do", "does", "for", "from", "had", "has", "have", "here", "i",
@@ -34,6 +39,36 @@ def tokenize(text: str) -> list[str]:
             continue
         out.append(t)
     return out
+
+
+def anchor_tokens(text: str) -> set[str]:
+    """Return exact repo-specific identifiers that can bridge paraphrased feedback.
+
+    Reviewers often describe the same convention with very different prose while
+    repeating one stable symbol or API name (for example ``camelCase``,
+    ``nextTestSetup`` or ``ConfigBuilder::default``). These anchors are treated
+    as stronger evidence than ordinary English words, but common manifest/file
+    names are intentionally excluded.
+    """
+    anchors: set[str] = set()
+    for raw in TOKEN_RE.findall(clean_text(text)):
+        token = raw.strip("._-:")
+        if len(token) < 5:
+            continue
+        normalized = token.lower()
+        if normalized in GENERIC_ANCHORS:
+            continue
+        looks_structured = (
+            raw.startswith("_")
+            or "_" in raw
+            or "." in raw
+            or "::" in raw
+            or "-" in raw
+            or re.search(r"[a-z][A-Z]", raw) is not None
+        )
+        if looks_structured:
+            anchors.add(normalized)
+    return anchors
 
 
 def _idf_vectors(token_lists: list[list[str]]) -> list[dict[str, float]]:
@@ -89,6 +124,7 @@ def cluster_comments(
     if not comments:
         return []
     token_lists = [tokenize(c.body) for c in comments]
+    anchors = [anchor_tokens(c.body) for c in comments]
     vectors = _idf_vectors(token_lists)
     uf = _UnionFind(len(comments))
 
@@ -98,12 +134,16 @@ def cluster_comments(
             if comments[i].pr_number == comments[j].pr_number:
                 continue
             shared = set_i & set(token_lists[j])
-            if len(shared) < 2:
+            shared_anchors = anchors[i] & anchors[j]
+            if len(shared) < 2 and not shared_anchors:
                 continue
             sim = cosine(vectors[i], vectors[j])
-            # Identifiers / API names are disproportionately useful repo-specific signals.
+            # Exact repo-specific identifiers can connect paraphrased review feedback.
+            # Keep a small lexical floor so one incidental symbol mention is not enough.
             identifier_bonus = any(("_" in t or "." in t or ":" in t) for t in shared)
             threshold = similarity_threshold - (0.05 if identifier_bonus else 0.0)
+            if shared_anchors:
+                threshold = min(threshold, 0.03)
             if sim >= threshold:
                 uf.union(i, j)
 
