@@ -64,29 +64,47 @@ filter likely actionable feedback
         ↓
 deterministic similarity clustering
         ↓
+repo-specific identifier anchors
+        ↓
 require recurrence across distinct PRs
         ↓
 rank candidates + preserve provenance
 ```
 
-The alpha uses a small TF-IDF/cosine baseline from the Python standard library. That is intentionally less “smart” than an LLM: it gives the project an auditable benchmark before an optional semantic layer is added.
+The alpha uses a small TF-IDF/cosine baseline from the Python standard library plus exact anchors for stable repository-specific identifiers such as `camelCase`, `nextTestSetup`, `_register`, or `ConfigBuilder::default`. This is intentionally less “smart” than an LLM: it gives the project an auditable benchmark before an optional semantic layer is added.
+
+## Real-data regression demo
+
+Two public `openai/codex` review comments describe the same convention using very different prose:
+
+```text
+PR #6467
+“we are using camelCase throughout the V2 protocol...”
+
+PR #8442
+“add #[serde(rename_all = \"camelCase\")]...”
+```
+
+The first TF-IDF baseline missed this pair. The current alpha links them through the stable `camelCase` identifier and emits one evidence-backed candidate spanning two PRs.
+
+See [`research/demo-openai-codex.md`](research/demo-openai-codex.md) for the exact public evidence and current output.
 
 ## Example candidate
 
 ```text
-MB-003
+MB-001
 
 Candidate rule
 ──────────────
 FYI, we are using "camelCase" throughout the V2 protocol,
 so let's follow suit here.
 
-Observed in: 4 PRs
-Reviewers: 2
+Unique PRs: 2
+Unique reviewers: 1
+Shared signal: camelcase
 Evidence:
-- PR #6467 · src/... · @reviewer · link
-- PR #8442 · src/... · @reviewer · link
-- ...
+- PR #6467 · codex-rs/execpolicy2/src/decision.rs
+- PR #8442 · codex-rs/network-proxy/src/config.rs
 ```
 
 A maintainer should **accept, edit, or reject** the candidate. Automatic `AGENTS.md` modification is intentionally not part of the first alpha.
