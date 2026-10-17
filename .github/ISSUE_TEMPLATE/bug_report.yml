@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a crash, bad filter, or misleading candidate cluster.
+title: "[bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Candidate/evidence
+      description: Include the candidate ID and public source links when possible. Remove secrets/private review text.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should Maintainer Budget have done instead?
+    validations:
+      required: true

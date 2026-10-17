@@ -1,0 +1,24 @@
+name: Discovery improvement
+description: Propose a safer way to find useful repository conventions.
+title: "[discovery] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Missed or noisy pattern
+      description: What repeated review knowledge is currently missed, or what noise is being grouped incorrectly?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Public evidence
+      description: Link several PR review comments that demonstrate the pattern when possible.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Suggested approach
+      description: Prefer deterministic/inspectable approaches; explain false-positive controls.
